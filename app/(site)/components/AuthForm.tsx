@@ -1,12 +1,28 @@
 "use client"
-import React, { useCallback, useState } from "react"
+import React, { useCallback, useEffect, useState } from "react"
 import { useForm, FieldValues, SubmitHandler } from "react-hook-form"
 import Button from "@/app/components/Button"
 import Input from "@/app/components/inputs/Input"
 import AuthSocialButton from "./AuthSocialButton"
 type Variant = "LOGIN" | "REGISTER"
 import { BsGithub, BsGoogle } from "react-icons/bs"
+import axios from "axios"
+import { toast } from "react-hot-toast"
+import { signIn, useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 function AuthForm() {
+  const session = useSession()
+  const router = useRouter()
+  useEffect(() => {
+    if (session?.status === "authenticated") {
+      router.push("/users")
+      console.log("Authenticated")
+    }
+  }, [session?.status, router])
+
+  if (session?.status === "authenticated") {
+    console.log("Authenticated")
+  }
   const [variant, setVariant] = useState<Variant>("LOGIN")
   const [isLoading, setIsLoading] = useState(false)
 
@@ -34,15 +50,49 @@ function AuthForm() {
     setIsLoading(true)
 
     if (variant === "REGISTER") {
+      axios
+        .post("/api/register", data)
+        .then(() => {
+          signIn("credentials", data)
+        })
+        .catch((e) => toast.error("Something went wrong!"))
+        .finally(() => setIsLoading(false))
       /// Axios Register
     }
     if (variant === "LOGIN") {
       /// NextAuth Signin
+
+      signIn("credentials", {
+        ...data,
+        redirect: false,
+      })
+        .then((cb) => {
+          if (cb?.error) {
+            toast.error("Invalid credentials")
+          }
+
+          if (cb?.ok && !cb.error) {
+            toast.success("Logged in!")
+            router.push("/users")
+          }
+        })
+        .finally(() => setIsLoading(false))
     }
   }
 
   const socialAction = (action: string) => {
     setIsLoading(true)
+    signIn(action, { redirect: false })
+      .then((cb) => {
+        if (cb?.error) {
+          toast.error("Invalid credentials")
+        }
+        if (cb?.ok && !cb.error) {
+          toast.success("Logged in!")
+          router.push("/users")
+        }
+      })
+      .finally(() => setIsLoading(false))
     // Next Auth Social Sign In
   }
 
